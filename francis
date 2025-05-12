@@ -1,0 +1,137 @@
+### File structure:
+# jazbitz/
+# ├── manage.py
+# ├── jazbitz/
+# │   ├── settings.py
+# │   ├── urls.py
+# │   └── wsgi.py
+# ├── store/
+# │   ├── models.py
+# │   ├── views.py
+# │   ├── urls.py
+# │   ├── templates/store/
+# │   │   ├── base.html
+# │   │   ├── index.html
+# │   │   ├── product_list.html
+# │   │   ├── cart.html
+# │   │   └── history.html
+
+# This is a simplified core structure for your website.
+
+# models.py
+from django.contrib.auth.models import User
+from django.db import models
+
+CATEGORY_CHOICES = [
+    ("Shoes", "Shoes"),
+    ("Shoe Laces", "Shoe Laces"),
+    ("Wax Cleaner", "Wax Cleaner"),
+    ("Slippers", "Slippers")
+]
+
+class Product(models.Model):
+    name = models.CharField(max_length=100)
+    category = models.CharField(choices=CATEGORY_CHOICES, max_length=20)
+    price = models.DecimalField(max_digits=6, decimal_places=2)
+    image = models.ImageField(upload_to='products/')
+
+class CartItem(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField(default=1)
+
+class Order(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    items = models.ManyToManyField(CartItem)
+    bank_account_number = models.CharField(max_length=20)
+    date = models.DateTimeField(auto_now_add=True)
+
+# views.py (simplified)
+from django.shortcuts import render, redirect
+from .models import Product, CartItem, Order
+from django.contrib.auth.decorators import login_required
+
+
+def index(request):
+    products = Product.objects.all()
+    return render(request, 'store/index.html', {'products': products})
+
+@login_required
+def add_to_cart(request, product_id):
+    # logic to add item
+    ...
+
+@login_required
+def checkout(request):
+    if request.method == "POST":
+        account = request.POST['bank_account']
+        # process payment and save order
+        ...
+    return render(request, 'store/checkout.html')
+
+@login_required
+def order_history(request):
+    orders = Order.objects.filter(user=request.user)
+    return render(request, 'store/history.html', {'orders': orders})
+
+# templates/store/base.html (minimal Tailwind CSS example)
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>JazBitz Shoe Department</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-white text-gray-800 font-sans">
+  <header class="p-4 bg-black text-white text-center text-2xl">JazBitz Shoe Department</header>
+  <main class="p-6">{% block content %}{% endblock %}</main>
+</body>
+</html>
+
+# templates/store/index.html
+{% extends 'store/base.html' %}
+{% block content %}
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 animate-fade-in">
+  {% for product in products %}
+    <div class="border p-4 rounded-xl hover:shadow-xl transition-all">
+      <img src="{{ product.image.url }}" class="rounded-xl">
+      <h2 class="mt-2 font-semibold">{{ product.name }}</h2>
+      <p>${{ product.price }}</p>
+      <form method="post" action="/add-to-cart/{{ product.id }}/">{% csrf_token %}<button class="bg-black text-white px-4 py-1 rounded">Add to Cart</button></form>
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}
+
+# templates/store/history.html
+{% extends 'store/base.html' %}
+{% block content %}
+<h2 class="text-xl font-bold mb-4">Order History</h2>
+{% for order in orders %}
+  <div class="mb-4 p-4 border rounded">
+    <p><strong>Date:</strong> {{ order.date }}</p>
+    <p><strong>Bank Account:</strong> {{ order.bank_account_number }}</p>
+    <ul>
+      {% for item in order.items.all %}
+        <li>{{ item.product.name }} (x{{ item.quantity }})</li>
+      {% endfor %}
+    </ul>
+  </div>
+{% endfor %}
+{% endblock %}
+
+# You’d also set up forms, URL patterns, and user auth using Django’s built-in features.
+
+# Optional JavaScript animation (fade-in)
+// Add this to a <script> tag or JS file
+// .animate-fade-in class
+const fadeElements = document.querySelectorAll('.animate-fade-in');
+fadeElements.forEach(el => {
+  el.style.opacity = 0;
+  el.style.transform = 'translateY(20px)';
+  setTimeout(() => {
+    el.style.transition = 'opacity 0.5s ease-out, transform 0.5s ease-out';
+    el.style.opacity = 1;
+    el.style.transform = 'translateY(0)';
+  }, 100);
+});
